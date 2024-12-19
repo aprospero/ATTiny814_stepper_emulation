@@ -21,6 +21,7 @@ uint32_t now_;
  **********************************/
 
 #define PWM_MIN_DUTY 10
+#define PWM_MAX_DUTY 254
 #define PWM_DEFAULT_DUTY PWM_MIN_DUTY
  
 #define PWM_FREQ 30000UL
@@ -34,6 +35,8 @@ void pwm_set_duty(int duty_0)
 {
   if (duty_0 < PWM_MIN_DUTY) 
     duty_0 = PWM_MIN_DUTY;
+  if (duty_0 > PWM_MAX_DUTY)
+    duty_0 = PWM_MAX_DUTY;
   TCA0.SPLIT.HCMP0  = pwm[0].duty = duty_0;  // set duty cycle 0
 //  TCA0.SPLIT.HCMP1  = duty_1;  // set duty cycle 1
 //  TCA0.SPLIT.HCMP2  = duty_2;  // set duty cycle 2

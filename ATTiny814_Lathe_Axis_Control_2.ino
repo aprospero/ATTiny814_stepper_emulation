@@ -325,17 +325,34 @@ void vel_set_nominal(uint32_t nom_velocity) {
 void vel_update(void) {
   static uint32_t last_check = now_;
   if (now_ - last_check > (1000 / VELOCITY_CHECK_FREQ)) {
-    last_check = now_;
-    vel.last_velocity = vel_cnt_a;
+    int32_t next_duty;
+    int16_t pid;
+    uint16_t act_velocity = vel_cnt_a;
     vel_cnt_a = 0;
     vel_cnt_b = 0;
-
-    vel.last_duty += pid_update( vel.nom_velocity - vel.last_velocity, vel.last_velocity);
-    if (vel.last_duty < 0)
-      vel.last_duty = 0;
-    if (vel.last_duty > 254)
-      vel.last_duty = 254;
-    pwm_set_duty(vel.last_duty);    
+    pid = pid_update(vel.nom_velocity - act_velocity, act_velocity);
+    next_duty = vel.last_duty + pid;
+    if (next_duty < 0)
+      next_duty = 0;
+    if (next_duty > 254)
+      next_duty = 254;    
+      
+    DBG(print, now_ - last_check);
+    DBG(print, ":   Vel ");
+    DBG(print, vel.last_velocity);
+    DBG(print, "->");
+    DBG(print, act_velocity);
+    DBG(print, "    PID ");
+    DBG(print, Pid);
+    DBG(print, "     Duty ");
+    DBG(print, vel.last_duty);
+    DBG(print, "->");
+    DBG(println, next_duty);
+    
+    vel.last_velocity = act_velocity;
+    vel.last_duty     = next_duty;   
+    last_check        = now_;
+    pwm_set_duty(next_duty); 
   }
 }
 
@@ -349,6 +366,8 @@ void vel_update(void) {
 
 void setup() {
   now_ = micros();
+
+  PORTMUX.CTRLB |= PORTMUX_USART0_ALTERNATE_gc; // use PA1/2 for debug USART  
   DBG(begin,115200);
   DBG(print, "PORT A - Dir: 0x");
   DBG(print, PORTA_DIR, HEX);
@@ -376,7 +395,6 @@ void setup() {
   DBG(print, "  Val: 0x");
   DBG(println, PORTB_IN, HEX);
   DBG(println, "Run..."); 
-
 }
 
 

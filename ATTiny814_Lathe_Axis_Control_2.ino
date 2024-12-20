@@ -151,7 +151,7 @@ uint8_t enc_update() {
     if (enc_cur_pos == 0x00 || ((enc_cur_pos == 0x03) && CONFIG_ENCODER_2TICKS))
     {
       // this is when the encoder is in a 'rest' state
-      int8_t add = enc_map[enc.state & 0x1F] * 8;
+      int8_t add = enc_map[enc.state & 0x1F];
       if (add) {
         enc.value += add;
 
@@ -200,10 +200,10 @@ void dir_update(void) {
  *            P  I  D             *
  *                                *
  **********************************/
-
-#define PID_P_DEFAULT  2.0f
-#define PID_I_DEFAULT  0.00f
-#define PID_D_DEFAULT -0.66f
+#define PID_FACTOR 0.05f
+#define PID_P_DEFAULT ( 2.00f * PID_FACTOR)
+#define PID_I_DEFAULT ( 0.00f * PID_FACTOR)
+#define PID_D_DEFAULT ( 0.00f * PID_FACTOR)
 
 #if 0   // if 1 we calculate the PID with fractional numbers if 0 we use float.
         // spoiler alert: on an ATtiny817@20MHz floats are faster. (~110µs  vs. fractional: ~130µs)
@@ -278,21 +278,40 @@ int16_t pid_update(int16_t error, int16_t position)
 #define PIN_VELOCITY_B PIN_PA5
 #define PIN_VELOCITY_VAL ((PORTA_IN & 0x30) >> 4)
 
-#define DEFAULT_VELOCITY 1024
+#define DEFAULT_VELOCITY 50
+
+#define VELOCITY_CHECK_FREQ 20 // check period in Hz
+
+volatile uint16_t vel_cnt_a;
+volatile uint16_t vel_cnt_b;
+
+ISR(PORTA_PORT_vect) {
+  uint8_t flags = PORTA.INTFLAGS;   // read which pins triggered the int
+  if (flags & 0b00010000)               
+    ++vel_cnt_a;
+  if (flags & 0b00100000)               
+    ++vel_cnt_b;
+  PORTA.INTFLAGS = flags;          // Clear the flags by writing a 1 to them (not a 0);
+}
 
 struct velocity_state {
   uint16_t nom_velocity;
   uint8_t gpi_last_state;
-  uint32_t last_slope;
+  int32_t last_duty;
   uint32_t last_velocity;
 } vel;
 
 void vel_init(void) {
   pinMode(PIN_VELOCITY_A, INPUT);
   pinMode(PIN_VELOCITY_B, INPUT);
-  vel.last_slope = 0;
+
+  // Enable the interrupt on change.
+  PORTA.PIN4CTRL |= PORT_ISC_BOTHEDGES_gc; // PA4
+  PORTA.PIN5CTRL |= PORT_ISC_BOTHEDGES_gc; // PA5
+
   vel.nom_velocity = DEFAULT_VELOCITY;
   vel.last_velocity = 0;
+  vel.last_duty = 128;
   vel.gpi_last_state = PIN_VELOCITY_VAL;
 }
 
@@ -301,24 +320,25 @@ void vel_set_nominal(uint32_t nom_velocity) {
 }
 
 /*
- * returns calculated error to nominal velocity 
+ * controls pwm duty cycle
  */
-int vel_update(void) {
-  uint8_t act_state = PIN_VELOCITY_VAL;
-  if (vel.gpi_last_state != act_state) {
-    if (vel.last_slope) {
-      vel.last_velocity = now_ - vel.last_slope;
-    }
-    vel.last_slope = now_;
-    vel.gpi_last_state = act_state;
-  } else if (vel.nom_velocity) {
-    if ((now_ - vel.last_slope) > vel.nom_velocity)
-      vel.last_velocity = now_ - vel.last_slope ;
-  } else {
-    vel.last_velocity = 0;
+void vel_update(void) {
+  static uint32_t last_check = now_;
+  if (now_ - last_check > (1000 / VELOCITY_CHECK_FREQ)) {
+    last_check = now_;
+    vel.last_velocity = vel_cnt_a;
+    vel_cnt_a = 0;
+    vel_cnt_b = 0;
+
+    vel.last_duty += pid_update( vel.nom_velocity - vel.last_velocity, vel.last_velocity);
+    if (vel.last_duty < 0)
+      vel.last_duty = 0;
+    if (vel.last_duty > 254)
+      vel.last_duty = 254;
+    pwm_set_duty(vel.last_duty);    
   }
-  return vel.last_velocity - vel.nom_velocity;
 }
+
 
 
 /**********************************
@@ -344,7 +364,7 @@ void setup() {
   vel_init();
   enc_init(vel.nom_velocity);
   dir_init();
-  pid_init(PID_P_DEFAULT, PID_I_DEFAULT, PID_D_DEFAULT, -255, 255, vel.nom_velocity);
+  pid_init(PID_P_DEFAULT, PID_I_DEFAULT, PID_D_DEFAULT, -128, 128, vel.nom_velocity);
   DBG(println, " ...Done.");
 
   DBG(print, "PORT A - Dir: 0x");
@@ -359,31 +379,17 @@ void setup() {
 
 }
 
-void do_pid_ctrl() {
-  int32_t error = vel_update();
-  int32_t duty = pid_update(error, vel.last_velocity);
-  if (duty < 0)
-    duty = 0;
-  if (duty > 255)
-    duty = 255;
-  pwm_set_duty(duty);
-}
-
-void do_static_ctrl() {
-  pwm_set_duty(enc.value >> 3);
-  dir_update();
-}
 
 void loop() {
-  now_ = micros();
+  now_ = millis();
 
-  if (enc_update())
-    vel.nom_velocity = enc.value; 
+  enc_update();
+  vel.nom_velocity = enc.value; 
 
-#if 0
-  do_static_ctrl();
+#if 1
+  pwm_set_duty(enc.value);
 #else
-  do_pid_ctrl();
+  vel_update();
 #endif
 
   dir_update();

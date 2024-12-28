@@ -169,8 +169,8 @@ uint8_t enc_update() {
 #define PIN_DIRBTN_REV PIN_PA7
 #define PIN_DIRBTN_VAL ((PORTA_IN & 0xC0) >> 6)
 
-#define PIN_MOTOR_FWD PIN_PB2
-#define PIN_MOTOR_REV PIN_PB3
+#define PIN_MOTOR_FWD PIN_PA1
+#define PIN_MOTOR_REV PIN_PA2
 
 
 void dir_init(void) {
@@ -179,14 +179,14 @@ void dir_init(void) {
 
   pinMode(PIN_MOTOR_FWD, OUTPUT);
   pinMode(PIN_MOTOR_REV, OUTPUT);
-  PORTB.PIN2CTRL |= PORT_INVEN_bm;
-  PORTB.PIN3CTRL |= PORT_INVEN_bm;
+  PORTA.PIN2CTRL |= PORT_INVEN_bm;
+  PORTA.PIN1CTRL |= PORT_INVEN_bm;
 
 }
 
 void dir_update(void) {
   uint8_t dir = PIN_DIRBTN_VAL;
-  PORTB_OUT = (PORTB_OUT & ~0x0C) | (dir << 2);
+  PORTA_OUT = (PORTA_OUT & ~0x06) | (dir << 1);
 }
 
 /**********************************
@@ -361,8 +361,9 @@ void vel_update(void) {
 void setup() {
   now_ = micros();
 
-  PORTMUX.CTRLB |= PORTMUX_USART0_ALTERNATE_gc; // use PA1/2 for debug USART  
   DBG(begin,115200);
+  delay(750);
+
   DBG(print, "PORT A - Dir: 0x");
   DBG(print, PORTA_DIR, HEX);
   DBG(print, ", Val: 0x");

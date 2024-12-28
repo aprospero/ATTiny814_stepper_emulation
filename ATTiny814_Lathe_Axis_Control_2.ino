@@ -272,9 +272,9 @@ int16_t pid_update(int16_t error, int16_t position)
 #define PIN_VELOCITY_B PIN_PA5
 #define PIN_VELOCITY_VAL ((PORTA_IN & 0x30) >> 4)
 
-#define DEFAULT_VELOCITY 50
+#define DEFAULT_VELOCITY 250 // velocity in encoder pulse per second
 
-#define VELOCITY_CHECK_FREQ 20 // check period in Hz
+#define VELOCITY_CHECK_FREQ 25 // check period in Hz
 
 volatile uint16_t vel_cnt_a;
 volatile uint16_t vel_cnt_b;
@@ -303,7 +303,7 @@ void vel_init(void) {
   PORTA.PIN4CTRL |= PORT_ISC_BOTHEDGES_gc; // PA4
   PORTA.PIN5CTRL |= PORT_ISC_BOTHEDGES_gc; // PA5
 
-  vel.nom_velocity = DEFAULT_VELOCITY;
+  vel.nom_velocity = DEFAULT_VELOCITY / VELOCITY_CHECK_FREQ;
   vel.last_velocity = 0;
   vel.last_duty = 128;
   vel.gpi_last_state = PIN_VELOCITY_VAL;

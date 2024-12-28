@@ -195,9 +195,9 @@ void dir_update(void) {
  *                                *
  **********************************/
 #define PID_FACTOR 0.05f
-#define PID_P_DEFAULT ( 2.00f * PID_FACTOR)
-#define PID_I_DEFAULT ( 0.00f * PID_FACTOR)
-#define PID_D_DEFAULT ( 0.00f * PID_FACTOR)
+#define PID_P_DEFAULT ( 20.00f * PID_FACTOR)
+#define PID_I_DEFAULT (  0.00f * PID_FACTOR)
+#define PID_D_DEFAULT (  0.00f * PID_FACTOR)
 
 #if 0   // if 1 we calculate the PID with fractional numbers if 0 we use float.
         // spoiler alert: on an ATtiny817@20MHz floats are faster. (~110µs  vs. fractional: ~130µs)

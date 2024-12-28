@@ -398,9 +398,10 @@ void loop() {
   now_ = millis();
 
   enc_update();
-  vel.nom_velocity = enc.value; 
+  vel.nom_velocity = enc.value;
+  //pid.p_gain = PID_FACTOR * (float) enc.value + PID_P_DEFAULT; 
 
-#if 1
+#if 0
   pwm_set_duty(enc.value);
 #else
   vel_update();

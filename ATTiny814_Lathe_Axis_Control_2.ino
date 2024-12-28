@@ -360,7 +360,7 @@ void vel_update(void) {
  **********************************/
 
 void setup() {
-  now_ = micros();
+  now_ = millis();
 
   DBG(begin,115200);
   delay(750);

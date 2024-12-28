@@ -125,29 +125,23 @@ uint8_t enc_update() {
     if (enc.last_pos == 0x00) {
       if      (enc_cur_pos == 0x02) {
         enc.state |= ENCODER_FLAG_FORW_EDGE1;
-        DBG(print, "Enc - 1. Edge FWD. -> 0x"); DBG(println, enc.state, HEX);
       }
       else if (enc_cur_pos == 0x01) {
         enc.state |= ENCODER_FLAG_BACK_EDGE1;
-        DBG(print, "Enc - 1. Edge RWD. -> 0x"); DBG(println, enc.state, HEX);
       }
     } else if (enc.last_pos == 0x03) {
       // this is the second edge
       if      (enc_cur_pos == 0x01) {
         enc.state |= ENCODER_FLAG_FORW_EDGE2;
-        DBG(print, "Enc - 2. Edge FWD. -> 0x"); DBG(println, enc.state, HEX);
       }
       else if (enc_cur_pos == 0x02) {
         enc.state |= ENCODER_FLAG_BACK_EDGE2;
-        DBG(print, "Enc - 2. Edge RWD. -> 0x"); DBG(println, enc.state, HEX);
       }
     }
-    
     if ((enc_cur_pos == 0x03 && ! CONFIG_ENCODER_2TICKS)) {
       enc.state |= ENCODER_FLAG_MIDSTEP;
-      DBG(print, "Enc - Mid Step.   -> 0x"); DBG(println, enc.state, HEX);
     }
-   
+
     if (enc_cur_pos == 0x00 || ((enc_cur_pos == 0x03) && CONFIG_ENCODER_2TICKS))
     {
       // this is when the encoder is in a 'rest' state
@@ -343,7 +337,7 @@ void vel_update(void) {
     DBG(print, "->");
     DBG(print, act_velocity);
     DBG(print, "    PID ");
-    DBG(print, Pid);
+    DBG(print, pid);
     DBG(print, "     Duty ");
     DBG(print, vel.last_duty);
     DBG(print, "->");

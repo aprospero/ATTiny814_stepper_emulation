@@ -268,13 +268,14 @@ int16_t pid_update(int16_t error, int16_t position)
  *        V E L O C I T Y         *
  *                                *
  **********************************/
-#define PIN_VELOCITY_A PIN_PA4
-#define PIN_VELOCITY_B PIN_PA5
-#define PIN_VELOCITY_VAL ((PORTA_IN & 0x30) >> 4)
+#define VEL_PIN_A PIN_PA4
+#define VEL_PIN_B PIN_PA5
 
-#define DEFAULT_VELOCITY 250 // velocity in encoder pulse per second
+#define VEL_PIN_EVAL ((PORTA_IN & 0x30) >> 4)
 
-#define VELOCITY_CHECK_FREQ 25 // check period in Hz
+#define VEL_DEFAULT_VAL 250 // velocity in encoder pulse per second
+
+#define VEL_PROBE_FREQ 25 // probe period in Hz
 
 volatile uint16_t vel_cnt_a;
 volatile uint16_t vel_cnt_b;
@@ -290,23 +291,23 @@ ISR(PORTA_PORT_vect) {
 
 struct velocity_state {
   uint16_t nom_velocity;
-  uint8_t gpi_last_state;
-  int32_t last_duty;
+  uint8_t  gpi_last_state;
+  int32_t  last_duty;
   uint32_t last_velocity;
 } vel;
 
 void vel_init(void) {
-  pinMode(PIN_VELOCITY_A, INPUT);
-  pinMode(PIN_VELOCITY_B, INPUT);
+  pinMode(VEL_PIN_A, INPUT);
+  pinMode(VEL_PIN_B, INPUT);
 
   // Enable the interrupt on change.
   PORTA.PIN4CTRL |= PORT_ISC_BOTHEDGES_gc; // PA4
   PORTA.PIN5CTRL |= PORT_ISC_BOTHEDGES_gc; // PA5
 
-  vel.nom_velocity = DEFAULT_VELOCITY / VELOCITY_CHECK_FREQ;
-  vel.last_velocity = 0;
-  vel.last_duty = 128;
-  vel.gpi_last_state = PIN_VELOCITY_VAL;
+  vel.nom_velocity   = VEL_DEFAULT_VAL / VEL_PROBE_FREQ;
+  vel.last_velocity  = 0;
+  vel.last_duty      = 128;
+  vel.gpi_last_state = VEL_PIN_EVAL;
 }
 
 void vel_set_nominal(uint32_t nom_velocity) {
@@ -318,7 +319,7 @@ void vel_set_nominal(uint32_t nom_velocity) {
  */
 void vel_update(void) {
   static uint32_t last_check = now_;
-  if (now_ - last_check > (1000 / VELOCITY_CHECK_FREQ)) {
+  if (now_ - last_check > (1000 / VEL_PROBE_FREQ)) {
     int32_t next_duty;
     int16_t pid;
     uint16_t act_velocity = vel_cnt_a;

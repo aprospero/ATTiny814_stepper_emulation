@@ -74,88 +74,41 @@ void pwm_init()
  *         E N C O D E R          *
  *                                *
  **********************************/
-#define CONFIG_ENCODER_2TICKS 1
+#define ENCODER_PIN_A PIN_PB0
+#define ENCODER_PIN_B PIN_PB1
+#define ENCODER_PIN_VAL (PORTB_IN & 0x03)
 
-#define ENCODER_FLAG_MIDSTEP    0x01
-#define ENCODER_FLAG_FORW_EDGE1 0x02
-#define ENCODER_FLAG_BACK_EDGE1 0x04
-#define ENCODER_FLAG_FORW_EDGE2 0x08
-#define ENCODER_FLAG_BACK_EDGE2 0x10
+// lookup table for combined values of last and act enc:
+// last val: bit 2/3 
+// act  val: bit 0/1
 
-// encoder value change map
-// each  encoder state flag combination is mapped to its 
-// resulting value change.
-// Requirements for value change: 
-//   both, first and last edge, or at least one edge 
-//   and the middle state of only one direction must be set 
-//   if an edge is missing accepting the middle state
-//   will reject bounces and false movements
-
-int8_t enc_map[32] {
-                       0,  0,  CONFIG_ENCODER_2TICKS,  1, -CONFIG_ENCODER_2TICKS, -1,  0,  0, // 00  - 07
-   CONFIG_ENCODER_2TICKS,  1,                      1,  1,                      0,  0,  0,  0, // 08  - 0f
-  -CONFIG_ENCODER_2TICKS, -1,                      0,  0,                     -1, -1,  0,  0, // 10  - 17
-                       0,  0,                      0,  0,                      0,  0,  0,  0  // 18  - 1f
+int8_t enc_stepper_map[16] = {
+ //   act == 0   1   2   3 
+             0,  1, -1,  0,   // 0 == last
+            -1,  0,  0,  1,   // 1
+             1,  0,  0, -1,   // 2
+             0, -1,  1,  0    // 3
 };
 
 struct enc {
-  uint8_t last_pos;
-  uint8_t state;
+  uint8_t last_state;
   int32_t value;
-
 } enc;
 
 void enc_init(int32_t value) {
-  pinMode(PIN_PB0, INPUT_PULLUP);
-  pinMode(PIN_PB1, INPUT_PULLUP);
-  enc.last_pos = PORTB_IN & 0x03;
-  enc.state = 0;
+  pinMode(ENCODER_PIN_A, INPUT);
+  pinMode(ENCODER_PIN_B, INPUT);
+  enc.last_state = ENCODER_PIN_VAL;
   enc.value = value;
 }
 /*
  * returns nonzero on encoder input 
  */
-uint8_t enc_update() {
-
-  uint8_t enc_cur_pos = PORTB_IN & 0x03;
-  uint8_t ret = 0;
-
-  if (enc_cur_pos != enc.last_pos) {
-
-    if (enc.last_pos == 0x00) {
-      if      (enc_cur_pos == 0x02) {
-        enc.state |= ENCODER_FLAG_FORW_EDGE1;
-      }
-      else if (enc_cur_pos == 0x01) {
-        enc.state |= ENCODER_FLAG_BACK_EDGE1;
-      }
-    } else if (enc.last_pos == 0x03) {
-      // this is the second edge
-      if      (enc_cur_pos == 0x01) {
-        enc.state |= ENCODER_FLAG_FORW_EDGE2;
-      }
-      else if (enc_cur_pos == 0x02) {
-        enc.state |= ENCODER_FLAG_BACK_EDGE2;
-      }
-    }
-    if ((enc_cur_pos == 0x03 && ! CONFIG_ENCODER_2TICKS)) {
-      enc.state |= ENCODER_FLAG_MIDSTEP;
-    }
-
-    if (enc_cur_pos == 0x00 || ((enc_cur_pos == 0x03) && CONFIG_ENCODER_2TICKS))
-    {
-      // this is when the encoder is in a 'rest' state
-      int8_t add = enc_map[enc.state & 0x1F];
-      if (add) {
-        enc.value += add;
-
-        DBG(print, "Enc "); DBG(print, add); DBG(print, " -> "); DBG(println, enc.value);
-        ret = 1;
-      }
-      enc.state = 0; // reset for next time
-    }
-  }
-  enc.last_pos = enc_cur_pos;
+int8_t enc_update() {
+  uint8_t act_state = ENCODER_PIN_VAL;
+  int8_t  ret = enc_stepper_map[act_state | (enc.last_state << 2)];
+  enc.value += ret; 
+  enc.last_state = act_state;
   return ret; 
 }
 

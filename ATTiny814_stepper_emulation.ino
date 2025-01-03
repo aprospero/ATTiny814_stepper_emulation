@@ -20,49 +20,47 @@ uint32_t now_;
  *                                *
  **********************************/
 
-#define PWM_MIN_DUTY 10
+#define PWM_MIN_DUTY 20
 #define PWM_MAX_DUTY 254
 #define PWM_DEFAULT_DUTY PWM_MIN_DUTY
  
 #define PWM_FREQ 30000UL
 
-struct pwm_state {
-  uint8_t duty;
- } pwm[1];
-
-
-void pwm_set_duty(int duty_0) 
+void pwm_set_duty(int duty) 
 {
-  if (duty_0 < PWM_MIN_DUTY) 
-    duty_0 = PWM_MIN_DUTY;
-  if (duty_0 > PWM_MAX_DUTY)
-    duty_0 = PWM_MAX_DUTY;
-  TCA0.SPLIT.HCMP0  = pwm[0].duty = duty_0;  // set duty cycle 0
-//  TCA0.SPLIT.HCMP1  = duty_1;  // set duty cycle 1
-//  TCA0.SPLIT.HCMP2  = duty_2;  // set duty cycle 2
+  if (duty < PWM_MIN_DUTY) 
+    duty = PWM_MIN_DUTY;
+  if (duty > PWM_MAX_DUTY)
+    duty = PWM_MAX_DUTY;
+
+//  TCA0.SPLIT.HCMP0  = duty;  // set duty cycle for WO3
+//  TCA0.SPLIT.HCMP1  = duty;  // set duty cycle for WO4
+  TCA0.SPLIT.HCMP2  = duty;  // set duty cycle for WO5
 }
 
 void pwm_init()
 {
   takeOverTCA0();
 
-  pinMode(PIN_PA3, OUTPUT);                       // activate PWM_0
-//  pinMode(PIN_PA4, OUTPUT);                       // activate PWM_1
-//  pinMode(PIN_PA5, OUTPUT);                       // activate PWM_2
+//  pinMode(PIN_PA3, OUTPUT);                       // activate PWM for WO3
+//  pinMode(PIN_PA4, OUTPUT);                       // activate PWM for WO4
+  pinMode(PIN_PA5, OUTPUT);                       // activate PWM for WO5
 
-//  PORTA.PIN4CTRL |= PORT_INVEN_bm;                  // invert PWM_1 output
-//  PORTA.PIN5CTRL |= PORT_INVEN_bm;                  // invert PWM_2 output
+//  PORTA.PIN3CTRL |= PORT_INVEN_bm;                  // invert PWM output for WO3
+//  PORTA.PIN4CTRL |= PORT_INVEN_bm;                  // invert PWM output for WO4
+//  PORTA.PIN5CTRL |= PORT_INVEN_bm;                  // invert PWM output for WO5
 
   TCA0.SPLIT.CTRLA &= ~(TCA_SPLIT_ENABLE_bm);     // disable TCA0
   TCA0.SPLIT.CTRLESET |= TCA_SPLIT_CMD_RESET_gc;  // reset TCA0
 
   TCA0.SPLIT.CTRLD  = TCA_SPLIT_SPLITM_bm;        // set Split Mode
   TCA0.SPLIT.CTRLA  = TCA_SPLIT_CLKSEL_DIV1_gc;   // set clock divider (about 16kHz @5MHz)
-  TCA0.SPLIT.CTRLB  = 
-                        TCA_SPLIT_HCMP0EN_bm      // activate CMP output hi 0 aka WO3
-//                      | TCA_SPLIT_HCMP1EN_bm      // activate CMP output hi 1 aka WO4
-//                      | TCA_SPLIT_HCMP2EN_bm      // activate CMP output hi 2 aka WO5
-                      ;
+  TCA0.SPLIT.CTRLB  = 0;
+
+//  TCA0.SPLIT.CTRLB  |= TCA_SPLIT_HCMP0EN_bm;      // activate CMP output hi 0 aka WO3
+//  TCA0.SPLIT.CTRLB  |= TCA_SPLIT_HCMP1EN_bm;      // activate CMP output hi 1 aka WO4
+  TCA0.SPLIT.CTRLB  |= TCA_SPLIT_HCMP2EN_bm;      // activate CMP output hi 2 aka WO5
+
   TCA0.SPLIT.HPER   = 255;                        // set period  
   pwm_set_duty(PWM_DEFAULT_DUTY);                 // set duty
   TCA0.SPLIT.CTRLA |= TCA_SPLIT_ENABLE_bm;       // enable TCA0

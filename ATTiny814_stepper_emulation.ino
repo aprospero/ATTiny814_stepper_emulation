@@ -222,89 +222,67 @@ int16_t pid_update(int16_t error, int16_t position)
 
 /**********************************
  *                                *
- *        V E L O C I T Y         *
+ * S T E P   T R A N S L A T O R  *
  *                                *
  **********************************/
-#define VEL_PIN_A PIN_PA4
-#define VEL_PIN_B PIN_PA5
+#define STEP_PROBE_FREQ 25  // in Hz
+#define STEP_PROBE_SKEW 5   // in ticks
 
-#define VEL_PIN_EVAL ((PORTA_IN & 0x30) >> 4)
+#define STEP_PIN_STEP PIN_PA3
+#define STEP_PIN_DIR  PIN_PA2
 
-#define VEL_DEFAULT_VAL 250 // velocity in encoder pulse per second
+#define STEP_PIN_DIR_VAL ((PORTA_IN & 0b00000100) >> 2)
+#define STEP_PIN_STEP_MASK 0b00001000
 
-#define VEL_PROBE_FREQ 25 // probe period in Hz
-
-volatile uint16_t vel_cnt_a;
-volatile uint16_t vel_cnt_b;
+volatile int32_t step_cnt;
 
 ISR(PORTA_PORT_vect) {
-  uint8_t flags = PORTA.INTFLAGS;   // read which pins triggered the int
-  if (flags & 0b00010000)               
-    ++vel_cnt_a;
-  if (flags & 0b00100000)               
-    ++vel_cnt_b;
-  PORTA.INTFLAGS = flags;          // Clear the flags by writing a 1 to them (not a 0);
+  step_cnt += (STEP_PIN_DIR_VAL << 1) - 1;  // dir pin state changes sign
+  PORTA.INTFLAGS = STEP_PIN_STEP_MASK;
 }
 
-struct velocity_state {
-  uint16_t nom_velocity;
-  uint8_t  gpi_last_state;
-  int32_t  last_duty;
-  uint32_t last_velocity;
-} vel;
+void step_init(void) {
+  pinMode(STEP_PIN_STEP, INPUT);
+  pinMode(STEP_PIN_DIR,  INPUT);
+  
+  PORTA.PIN3CTRL |= PORT_ISC_RISING_gc;   // Enable interrupt on step input pin.
+  step_cnt = 0;
 
-void vel_init(void) {
-  pinMode(VEL_PIN_A, INPUT);
-  pinMode(VEL_PIN_B, INPUT);
-
-  // Enable the interrupt on change.
-  PORTA.PIN4CTRL |= PORT_ISC_BOTHEDGES_gc; // PA4
-  PORTA.PIN5CTRL |= PORT_ISC_BOTHEDGES_gc; // PA5
-
-  vel.nom_velocity   = VEL_DEFAULT_VAL / VEL_PROBE_FREQ;
-  vel.last_velocity  = 0;
-  vel.last_duty      = 128;
-  vel.gpi_last_state = VEL_PIN_EVAL;
-}
-
-void vel_set_nominal(uint32_t nom_velocity) {
-  vel.nom_velocity = nom_velocity;
+  enc_init(0);
+  pid_init(PID_P_DEFAULT, PID_I_DEFAULT, PID_D_DEFAULT, -128, 128, 0);
+  motor_init();
 }
 
 /*
  * controls pwm duty cycle
  */
-void vel_update(void) {
+void step_update(void) {
   static uint32_t last_check = now_;
-  if (now_ - last_check > (1000 / VEL_PROBE_FREQ)) {
-    int32_t next_duty;
-    int16_t pid;
-    uint16_t act_velocity = vel_cnt_a;
-    vel_cnt_a = 0;
-    vel_cnt_b = 0;
-    pid = pid_update(vel.nom_velocity - act_velocity, act_velocity);
-    next_duty = vel.last_duty + pid;
-    if (next_duty < 0)
-      next_duty = 0;
-    if (next_duty > 254)
-      next_duty = 254;    
+
+  enc_update();
+
+  if (now_ - last_check > (1000 / STEP_PROBE_FREQ)) {
+    int32_t pos_err = step_cnt - enc.value;
+    int16_t pid = pid_update(pos_err, enc.value);
+    if (pos_err < STEP_PROBE_SKEW)
+      motor_set_dir(MOTOR_DIR_REV);
+    else if (pos_err > STEP_PROBE_SKEW)
+      motor_set_dir(MOTOR_DIR_FWD);
+    else
+      motor_set_dir(MOTOR_DIR_NONE);
+    motor_set_vel(abs(pid));
       
     DBG(print, now_ - last_check);
-    DBG(print, ":   Vel ");
-    DBG(print, vel.last_velocity);
+    DBG(print, ":   Step ");
+    DBG(print, enc.value);
     DBG(print, "->");
-    DBG(print, act_velocity);
+    DBG(print, step_cnt);
     DBG(print, "    PID ");
     DBG(print, pid);
     DBG(print, "     Duty ");
-    DBG(print, vel.last_duty);
-    DBG(print, "->");
-    DBG(println, next_duty);
+    DBG(println, pid);
     
-    vel.last_velocity = act_velocity;
-    vel.last_duty     = next_duty;   
     last_check        = now_;
-    pwm_set_duty(next_duty); 
   }
 }
 
@@ -332,11 +310,7 @@ void setup() {
   DBG(println, PORTB_IN, HEX);
 
   DBG(print, "Init... "); 
-  pwm_init();
-  vel_init();
-  enc_init(vel.nom_velocity);
-  dir_init();
-  pid_init(PID_P_DEFAULT, PID_I_DEFAULT, PID_D_DEFAULT, -128, 128, vel.nom_velocity);
+  step_init();
   DBG(println, " ...Done.");
 
   DBG(print, "PORT A - Dir: 0x");
@@ -354,15 +328,5 @@ void setup() {
 void loop() {
   now_ = millis();
 
-  enc_update();
-  vel.nom_velocity = enc.value;
-  //pid.p_gain = PID_FACTOR * (float) enc.value + PID_P_DEFAULT; 
-
-#if 0
-  pwm_set_duty(enc.value);
-#else
-  vel_update();
-#endif
-
-  dir_update();
+  step_update();
 }

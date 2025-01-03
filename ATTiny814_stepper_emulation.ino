@@ -69,6 +69,40 @@ void pwm_init()
 }
 
 
+
+/**********************************
+ *                                *
+ *          M O T O R             *
+ *                                *
+ **********************************/
+#define MOTOR_PIN_FWD PIN_PA6
+#define MOTOR_PIN_REV PIN_PA7
+
+#define MOTOR_DIR_NONE 0
+#define MOTOR_DIR_FWD  1
+#define MOTOR_DIR_REV  2
+#define MOTOR_DIR_STOP 3
+
+
+void motor_init(void) {
+  pinMode(MOTOR_PIN_FWD, OUTPUT);
+  pinMode(MOTOR_PIN_REV, OUTPUT);
+  PORTA.PIN2CTRL |= PORT_INVEN_bm;
+  PORTA.PIN1CTRL |= PORT_INVEN_bm;
+
+  pwm_init();
+}
+
+#define motor_set_vel(VEL) pwm_set_duty(VEL)
+
+void motor_set_dir(uint8_t dir) {
+  PORTA_OUT = (PORTA_OUT & ~0b11000000U) | (dir << 6);
+}
+
+
+
+
+
 /**********************************
  *                                *
  *         E N C O D E R          *
@@ -113,34 +147,6 @@ int8_t enc_update() {
 }
 
 
-/**********************************
- *                                *
- *       D I R B U T T O N        *
- *                                *
- **********************************/
-#define PIN_DIRBTN_FWD PIN_PA6
-#define PIN_DIRBTN_REV PIN_PA7
-#define PIN_DIRBTN_VAL ((PORTA_IN & 0xC0) >> 6)
-
-#define PIN_MOTOR_FWD PIN_PA1
-#define PIN_MOTOR_REV PIN_PA2
-
-
-void dir_init(void) {
-  pinMode(PIN_DIRBTN_FWD, INPUT_PULLUP);
-  pinMode(PIN_DIRBTN_REV, INPUT_PULLUP);
-
-  pinMode(PIN_MOTOR_FWD, OUTPUT);
-  pinMode(PIN_MOTOR_REV, OUTPUT);
-  PORTA.PIN2CTRL |= PORT_INVEN_bm;
-  PORTA.PIN1CTRL |= PORT_INVEN_bm;
-
-}
-
-void dir_update(void) {
-  uint8_t dir = PIN_DIRBTN_VAL;
-  PORTA_OUT = (PORTA_OUT & ~0x06) | (dir << 1);
-}
 
 /**********************************
  *                                *

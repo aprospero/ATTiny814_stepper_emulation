@@ -3,7 +3,7 @@
  *
  */
  
-#define DEBUG 0   // SET TO 0 TO REMOVE TRACES
+#define DEBUG 1   // SET TO 0 TO REMOVE TRACES
 
 #if DEBUG
 #define DBG(FCT,...) Serial.FCT(__VA_ARGS__)
@@ -70,6 +70,15 @@ void pwm_init()
 //  pwm_set_duty(1, PWM_DUTY_DEFAULT);              // set duty for WO4
   pwm_set_duty(/*2, */PWM_DUTY_DEFAULT);              // set duty for WO5
   TCA0.SPLIT.CTRLA |= TCA_SPLIT_ENABLE_bm;        // enable TCA0
+
+  DBG(println, "########  PWM  #########");
+  DBG(print,   "# Frequency:    ");
+  DBG(println, PWM_FREQ);
+  DBG(print,   "# Default duty: ");
+  DBG(println, PWM_DUTY_DEFAULT);
+  DBG(print,   "# Max duty:     ");
+  DBG(println, PWM_DUTY_MAX);
+  DBG(println);
 }
 
 
@@ -99,6 +108,12 @@ void motor_init(void) {
   PORTA.PIN1CTRL |= PORT_INVEN_bm;
 
   pwm_init();
+  DBG(println, "#######  Motor  ########");
+  DBG(print,   "# Minimum Torque: ");
+  DBG(println, MOTOR_TORQUE_MIN);
+  DBG(print,   "# Maximum Torque: ");
+  DBG(println, MOTOR_TORQUE_MAX);
+  DBG(println);
 }
 
 void motor_set_torque(uint32_t torque) {
@@ -155,6 +170,10 @@ void enc_init(int32_t value) {
   pinMode(ENCODER_PIN_B, INPUT);
   enc.last_state = ENCODER_PIN_VAL;
   enc.value = value;
+  DBG(println, "######  Encoder  #######");
+  DBG(print,   "# Start value: ");
+  DBG(println, value);
+  DBG(println);
 }
 /*
  * returns nonzero on encoder input 
@@ -184,6 +203,7 @@ int8_t enc_update() {
 
 typedef int32_t pid_frac;
 
+#define PID_TYPE "fixcomma"
 #define PID_FRAC_BITS 5  // PIDs calculation fixcomma position
 
 #define PID_INT16_MUL_FRAC_TO_FRAC(x,frac) (((((int32_t) (x) << PID_FRAC_BITS)) * ((pid_frac) (frac))) >> PID_FRAC_BITS)
@@ -194,6 +214,7 @@ typedef int32_t pid_frac;
 
 typedef float pid_frac;
 
+#define PID_TYPE "floating point"
 #define PID_INT16_MUL_FRAC_TO_FRAC(x,y) ((float) (x) * y)
 #define PID_MAKE_FRAC_FROM_FLOAT(x) (x)
 #define PID_MAKE_INT16_FROM_FRAC(x) ((int16_t) (x))
@@ -219,6 +240,15 @@ void pid_init(float p_gain, float i_gain, float d_gain, int16_t i_min, int16_t i
   pid.i_max = i_max;
   pid.d_state = init_state;
   pid.i_state = 0;
+  DBG(println, "#######   PID   ########");
+  DBG(println, "# Type:   " PID_TYPE);
+  DBG(print,   "# Gain P: ");
+  DBG(println, pid.p_gain);
+  DBG(print,   "# Gain I: ");
+  DBG(println, pid.i_gain);
+  DBG(print,   "# Gain D: ");
+  DBG(println, pid.d_gain);
+  DBG(println);
 }
 
 int16_t pid_update(int16_t error, int16_t position)
@@ -274,6 +304,12 @@ void step_init(void) {
   enc_init(0);
   pid_init(PID_P_DEFAULT, PID_I_DEFAULT, PID_D_DEFAULT, -128, 128, 0);
   motor_init();
+  DBG(println, "######  Step Ctrl  #######");
+  DBG(print,   "# Probing frequency: ");
+  DBG(println, STEP_PROBE_FREQ);
+  DBG(print,   "# Tolerated error:   ");
+  DBG(println, STEP_TOLERATED_ERROR);
+  DBG(println);
 }
 
 /*
@@ -281,8 +317,11 @@ void step_init(void) {
  */
 void step_update(void) {
   static uint32_t last_check = now_;
+  static uint32_t update_cnt = 0;
+  uint32_t tmp;
 
   enc_update();
+  update_cnt++;
 
   if (now_ - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
@@ -295,17 +334,31 @@ void step_update(void) {
       motor_set_dir(MOTOR_DIR_NONE);
     motor_set_torque(abs(pid));
       
+    DBG(print, id_get());
+    DBG(print, " Delta (ms): ");
     DBG(print, now_ - last_check);
-    DBG(print, ":   Step ");
+    DBG(print, " Avg RT (µs): ");
+    tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ);
+    DBG(print, tmp);
+    DBG(print, "." );
+    tmp = 10000000 / (update_cnt * STEP_PROBE_FREQ) - (tmp * 10);
+    DBG(print, tmp);
+    DBG(print, " Step: ");
     DBG(print, enc.value);
     DBG(print, "->");
     DBG(print, step_cnt);
-    DBG(print, "    PID ");
+    DBG(print, " PID: ");
     DBG(print, pid);
-    DBG(print, "     Duty ");
-    DBG(println, pid);
-    
-    last_check        = now_;
+    DBG(print, " Duty: ");
+    DBG(print, pid);
+    DBG(print, " (");
+    DBG(print, motor_get_torque());
+    DBG(print, ")");
+    DBG(print, " Dir: ");
+    DBG(println, motor_get_dir());
+
+    last_check = now_;
+    update_cnt = 0;
   }
 }
 
@@ -322,34 +375,18 @@ void setup() {
 
   DBG(begin,115200);
   delay(750);
-
-  DBG(print, "PORT A - Dir: 0x");
-  DBG(print, PORTA_DIR, HEX);
-  DBG(print, ", Val: 0x");
-  DBG(print, PORTA_IN, HEX);
-  DBG(print, "    PORT B - Dir: 0x");
-  DBG(print, PORTB_DIR, HEX);
-  DBG(print, "  Val: 0x");
-  DBG(println, PORTB_IN, HEX);
-
-  DBG(print, "Init... "); 
+  DBG(println, "#####################################");
+  DBG(println, "ATTiny814 - Stepper motor emulation.");
+  DBG(println, "#####################################");
+  DBG(println, "# Initialize:");
+  DBG(println);
   step_init();
-  DBG(println, " ...Done.");
-
-  DBG(print, "PORT A - Dir: 0x");
-  DBG(print, PORTA_DIR, HEX);
-  DBG(print, ", Val: 0x");
-  DBG(print, PORTA_IN, HEX);
-  DBG(print, "    PORT B - Dir: 0x");
-  DBG(print, PORTB_DIR, HEX);
-  DBG(print, "  Val: 0x");
-  DBG(println, PORTB_IN, HEX);
-  DBG(println, "Run..."); 
+  DBG(println, "# Init done.");
+  DBG(println);
 }
 
 
 void loop() {
   now_ = millis();
-
   step_update();
 }

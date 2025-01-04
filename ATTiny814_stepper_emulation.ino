@@ -130,16 +130,17 @@ uint8_t motor_get_dir() {
 #define ENCODER_PIN_B PIN_PB1
 #define ENCODER_PIN_VAL (PORTB_IN & 0x03)
 
-// lookup table for combined values of last and act enc:
-// last val: bit 2/3 
-// act  val: bit 0/1
-
-int8_t enc_stepper_map[16] = {
+/* 
+ * lookup table for combinations of last and act enc states.
+ * Encoder A & B states are treated as a 2bit field.
+ * delta = enc_stepper_map[last][act];
+ */
+int8_t enc_stepper_map[4][4] = {
  //   act == 0   1   2   3 
-             0,  1, -1,  0,   // 0 == last
-            -1,  0,  0,  1,   // 1
-             1,  0,  0, -1,   // 2
-             0, -1,  1,  0    // 3
+          {  0,  1, -1,  0 },   // 0 == last
+          { -1,  0,  0,  1 },   // 1
+          {  1,  0,  0, -1 },   // 2
+          {  0, -1,  1,  0 }    // 3
 };
 
 struct enc {
@@ -158,10 +159,10 @@ void enc_init(int32_t value) {
  */
 int8_t enc_update() {
   uint8_t act_state = ENCODER_PIN_VAL;
-  int8_t  ret = enc_stepper_map[act_state | (enc.last_state << 2)];
-  enc.value += ret; 
+  int8_t  delta = enc_stepper_map[enc.last_state][act_state];
+  enc.value += delta; 
   enc.last_state = act_state;
-  return ret; 
+  return delta; 
 }
 
 

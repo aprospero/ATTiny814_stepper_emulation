@@ -203,33 +203,33 @@ typedef int32_t pid_frac;
 #define PID_TYPE "fixcomma"
 #define PID_FRAC_BITS 5  // PIDs calculation fixcomma position
 
-#define PID_INT16_MUL_FRAC_TO_FRAC(x,frac) (((((int32_t) (x) << PID_FRAC_BITS)) * ((pid_frac) (frac))) >> PID_FRAC_BITS)
+#define PID_INT32_MUL_FRAC_TO_FRAC(x,frac) (((((int32_t) (x) << PID_FRAC_BITS)) * ((pid_frac) (frac))) >> PID_FRAC_BITS)
 #define PID_MAKE_FRAC_FROM_FLOAT(x) ((pid_frac) ((x) * ((float) (1 << PID_FRAC_BITS))))
-#define PID_MAKE_INT16_FROM_FRAC(x) ((int16_t) ((x) >> PID_FRAC_BITS))
+#define PID_MAKE_INT32_FROM_FRAC(x) ((int32_t) ((x) >> PID_FRAC_BITS))
 
 #else
 
 typedef float pid_frac;
 
 #define PID_TYPE "floating point"
-#define PID_INT16_MUL_FRAC_TO_FRAC(x,y) ((float) (x) * y)
+#define PID_INT32_MUL_FRAC_TO_FRAC(x,y) ((float) (x) * y)
 #define PID_MAKE_FRAC_FROM_FLOAT(x) (x)
-#define PID_MAKE_INT16_FROM_FRAC(x) ((int16_t) (x))
+#define PID_MAKE_INT32_FROM_FRAC(x) ((int32_t) (x))
 
 #endif
 
 struct pid
 {
-  int16_t  d_state; // Last position input
-  int16_t  i_state; // Integrator state
-  int16_t  i_max;   // Maximum and
-  int16_t  i_min;   // Minimum allowable integrator state
+  int32_t  d_state; // Last position input
+  int32_t  i_state; // Integrator state
+  int32_t  i_max;   // Maximum and
+  int32_t  i_min;   // Minimum allowable integrator state
   pid_frac i_gain;  // integral gain
   pid_frac p_gain;  // proportional gain
   pid_frac d_gain;  // derivative gain
 } pid;
 
-void pid_init(float p_gain, float i_gain, float d_gain, int16_t i_min, int16_t i_max, int16_t init_state) {
+void pid_init(float p_gain, float i_gain, float d_gain, int32_t i_min, int32_t i_max, int32_t init_state) {
   pid.p_gain = PID_MAKE_FRAC_FROM_FLOAT(p_gain);
   pid.i_gain = PID_MAKE_FRAC_FROM_FLOAT(i_gain);
   pid.d_gain = PID_MAKE_FRAC_FROM_FLOAT(d_gain);
@@ -248,25 +248,25 @@ void pid_init(float p_gain, float i_gain, float d_gain, int16_t i_min, int16_t i
   DBG(println);
 }
 
-int16_t pid_update(int16_t error, int16_t position)
+int32_t pid_update(int32_t error, int32_t position)
 {
   pid_frac pTerm, dTerm, iTerm;
 
-  pTerm = PID_INT16_MUL_FRAC_TO_FRAC(error, pid.p_gain); // calculate the proportional term
-  
+  pTerm = PID_INT32_MUL_FRAC_TO_FRAC(error, pid.p_gain); // calculate the proportional term
+    
   pid.i_state += error; // calculate the integral state with appropriate limiting
   if (pid.i_state > pid.i_max) // Limit the integrator state if necessary
     pid.i_state = pid.i_max;
   else if (pid.i_state < pid.i_min)
     pid.i_state = pid.i_min;
 
-  iTerm = PID_INT16_MUL_FRAC_TO_FRAC(pid.i_state, pid.i_gain); // calculate the integral term
+  iTerm = PID_INT32_MUL_FRAC_TO_FRAC(pid.i_state, pid.i_gain); // calculate the integral term
 
-  dTerm = PID_INT16_MUL_FRAC_TO_FRAC(pid.d_state - position, pid.d_gain); // calculate the derivative
+  dTerm = PID_INT32_MUL_FRAC_TO_FRAC(pid.d_state - position, pid.d_gain); // calculate the derivative
 
   pid.d_state = position;
 
-  return PID_MAKE_INT16_FROM_FRAC(pTerm + dTerm + iTerm);
+  return PID_MAKE_INT32_FROM_FRAC(pTerm + dTerm + iTerm);
 }
 
 
@@ -323,7 +323,7 @@ void step_update(void) {
 
   if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
-    int16_t pid = pid_update(pos_err, enc.value);
+    int32_t pid = pid_update(pos_err, enc.value);
     if (pos_err < STEP_TOLERATED_ERROR)
       motor_set_dir(MOTOR_DIR_REV);
     else if (pos_err > STEP_TOLERATED_ERROR)

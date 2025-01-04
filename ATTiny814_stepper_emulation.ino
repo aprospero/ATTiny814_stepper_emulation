@@ -1,6 +1,8 @@
-#define ARRLEN(x) (sizeof(x) / sizeof(x[0]))
-#define MAX(X,Y)((X)>(Y)?(X):(Y))
-
+/*
+ * Stepper motor control emulation for encoder based servo motors
+ *
+ */
+ 
 #define DEBUG 0   // SET TO 0 TO REMOVE TRACES
 
 #if DEBUG

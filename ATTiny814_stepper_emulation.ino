@@ -12,7 +12,7 @@
 #endif
 
 #include "Arduino.h"
-
+6
 /**********************************
  *                                *
  *           P  W  M              *
@@ -324,7 +324,7 @@ void step_update(void) {
   if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
     int32_t pid = pid_update(pos_err, enc.value);
-    if (pos_err < STEP_TOLERATED_ERROR)
+    if (pos_err < -STEP_TOLERATED_ERROR)
       motor_set_dir(MOTOR_DIR_REV);
     else if (pos_err > STEP_TOLERATED_ERROR)
       motor_set_dir(MOTOR_DIR_FWD);

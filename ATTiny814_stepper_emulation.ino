@@ -246,8 +246,8 @@ int16_t pid_update(int16_t error, int16_t position)
  * S T E P   T R A N S L A T O R  *
  *                                *
  **********************************/
-#define STEP_PROBE_FREQ 25  // in Hz
-#define STEP_PROBE_SKEW 5   // in ticks
+#define STEP_PROBE_FREQ 25       // in Hz - how frequently do we update motor torque
+#define STEP_TOLERATED_ERROR 8   // in ticks - the absolute max accepted error between nominal and actual step.
 
 #define STEP_PIN_STEP PIN_PA3
 #define STEP_PIN_DIR  PIN_PA2
@@ -285,9 +285,9 @@ void step_update(void) {
   if (now_ - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
     int16_t pid = pid_update(pos_err, enc.value);
-    if (pos_err < STEP_PROBE_SKEW)
+    if (pos_err < STEP_TOLERATED_ERROR)
       motor_set_dir(MOTOR_DIR_REV);
-    else if (pos_err > STEP_PROBE_SKEW)
+    else if (pos_err > STEP_TOLERATED_ERROR)
       motor_set_dir(MOTOR_DIR_FWD);
     else
       motor_set_dir(MOTOR_DIR_NONE);

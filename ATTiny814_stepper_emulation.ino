@@ -13,9 +13,6 @@
 
 #include "Arduino.h"
 
-
-uint32_t now_;
-
 /**********************************
  *                                *
  *           P  W  M              *
@@ -316,14 +313,15 @@ void step_init(void) {
  * controls pwm duty cycle
  */
 void step_update(void) {
-  static uint32_t last_check = now_;
+  static uint32_t last_check = millis();
   static uint32_t update_cnt = 0;
+  uint32_t now = millis();
   uint32_t tmp;
 
   enc_update();
   update_cnt++;
 
-  if (now_ - last_check > (1000 / STEP_PROBE_FREQ)) {
+  if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
     int16_t pid = pid_update(pos_err, enc.value);
     if (pos_err < STEP_TOLERATED_ERROR)
@@ -336,7 +334,7 @@ void step_update(void) {
       
     DBG(print, id_get());
     DBG(print, " Delta (ms): ");
-    DBG(print, now_ - last_check);
+    DBG(print, now - last_check);
     DBG(print, " Avg RT (µs): ");
     tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ);
     DBG(print, tmp);
@@ -357,7 +355,7 @@ void step_update(void) {
     DBG(print, " Dir: ");
     DBG(println, motor_get_dir());
 
-    last_check = now_;
+    last_check = now;
     update_cnt = 0;
   }
 }
@@ -371,8 +369,6 @@ void step_update(void) {
  **********************************/
 
 void setup() {
-  now_ = millis();
-
   DBG(begin,115200);
   delay(750);
   DBG(println, "#####################################");
@@ -387,6 +383,5 @@ void setup() {
 
 
 void loop() {
-  now_ = millis();
   step_update();
 }

@@ -12,7 +12,54 @@
 #endif
 
 #include "Arduino.h"
-6
+#include <USERSIG.h>
+
+
+
+/**********************************
+ *                                *
+ *       I D E N T I T Y          *
+ *                                *
+ **********************************/
+#define ID_X_AXIS 0xDE
+#define ID_Y_AXIS 0xED
+
+#define ID_DEFAULT ID_X_AXIS
+
+uint8_t id;
+
+const char * id_get() {
+  if (id == ID_X_AXIS)
+    return "[X - Axis]";
+  if (id == ID_Y_AXIS)
+    return "[Y - Axis]";
+  else 
+    return "[INV]";
+}
+
+void id_init(uint8_t force) {
+  id = USERSIG.read(0);
+  DBG(println, "######  Identity  ######");
+  DBG(print,   "# Expected:      ");
+  DBG(println, ID_X_AXIS);
+  DBG(print,   "# Actual:        ");
+  DBG(println, id);
+  DBG(print,   "# Force rewrite: ");
+  DBG(println, force);
+  if (id != ID_DEFAULT && (force || id == 0x00 || id == 0xFF)) {
+    USERSIG.write(0, ID_DEFAULT);
+    id = USERSIG.read(0);
+    DBG(print, "# ID updated to: ");
+    DBG(println, id);
+  } else {
+    DBG(println, "# leave ID untouched.");
+  }
+  DBG(println);
+}
+
+
+
+
 /**********************************
  *                                *
  *           P  W  M              *
@@ -376,6 +423,7 @@ void setup() {
   DBG(println, "#####################################");
   DBG(println, "# Initialize:");
   DBG(println);
+  id_init(false);
   step_init();
   DBG(println, "# Init done.");
   DBG(println);

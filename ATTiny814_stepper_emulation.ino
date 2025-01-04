@@ -19,22 +19,24 @@ uint32_t now_;
  *           P  W  M              *
  *                                *
  **********************************/
+#define PWM_DUTY_DEFAULT 128   // 50% duty 
+#define PWM_DUTY_MAX 254       // must be in [1..254]
 
-#define PWM_MIN_DUTY 20
-#define PWM_MAX_DUTY 254
-#define PWM_DEFAULT_DUTY PWM_MIN_DUTY
- 
 #define PWM_FREQ 30000UL
 
-void pwm_set_duty(int duty) 
+uint8_t pwm_get_duty() 
 {
-  if (duty < PWM_MIN_DUTY) 
-    duty = PWM_MIN_DUTY;
-  if (duty > PWM_MAX_DUTY)
-    duty = PWM_MAX_DUTY;
+//  if (id == 0) return TCA0.SPLIT.HCMP0;  // get duty cycle for WO3
+//  if (id == 1) return TCA0.SPLIT.HCMP1;  // get duty cycle for WO4
+//  if (id == 2) 
+  return TCA0.SPLIT.HCMP2;  // get duty cycle for WO5
+}
 
-//  TCA0.SPLIT.HCMP0  = duty;  // set duty cycle for WO3
-//  TCA0.SPLIT.HCMP1  = duty;  // set duty cycle for WO4
+void pwm_set_duty(/* uint8_t id, */uint8_t duty) 
+{
+//  if (id == 0) TCA0.SPLIT.HCMP0  = duty;  // set duty cycle for WO3
+//  if (id == 1) TCA0.SPLIT.HCMP1  = duty;  // set duty cycle for WO4
+//  if (id == 2) 
   TCA0.SPLIT.HCMP2  = duty;  // set duty cycle for WO5
 }
 
@@ -61,9 +63,11 @@ void pwm_init()
 //  TCA0.SPLIT.CTRLB  |= TCA_SPLIT_HCMP1EN_bm;      // activate CMP output hi 1 aka WO4
   TCA0.SPLIT.CTRLB  |= TCA_SPLIT_HCMP2EN_bm;      // activate CMP output hi 2 aka WO5
 
-  TCA0.SPLIT.HPER   = 255;                        // set period  
-  pwm_set_duty(PWM_DEFAULT_DUTY);                 // set duty
-  TCA0.SPLIT.CTRLA |= TCA_SPLIT_ENABLE_bm;       // enable TCA0
+  TCA0.SPLIT.HPER   = PWM_DUTY_MAX + 1;           // set period  
+//  pwm_set_duty(0, PWM_DUTY_DEFAULT);              // set duty for WO3
+//  pwm_set_duty(1, PWM_DUTY_DEFAULT);              // set duty for WO4
+  pwm_set_duty(/*2, */PWM_DUTY_DEFAULT);              // set duty for WO5
+  TCA0.SPLIT.CTRLA |= TCA_SPLIT_ENABLE_bm;        // enable TCA0
 }
 
 
@@ -75,6 +79,10 @@ void pwm_init()
  **********************************/
 #define MOTOR_PIN_FWD PIN_PA6
 #define MOTOR_PIN_REV PIN_PA7
+
+#define MOTOR_TORQUE_MIN 30
+#define MOTOR_TORQUE_MAX PWM_DUTY_MAX
+
 
 #define MOTOR_DIR_NONE 0
 #define MOTOR_DIR_FWD  1
@@ -91,10 +99,22 @@ void motor_init(void) {
   pwm_init();
 }
 
-#define motor_set_vel(VEL) pwm_set_duty(VEL)
+void motor_set_torque(uint32_t torque) {
+  if (torque < MOTOR_TORQUE_MIN) 
+    torque = MOTOR_TORQUE_MIN;
+  if (torque > MOTOR_TORQUE_MAX)
+    torque = MOTOR_TORQUE_MAX;
+  pwm_set_duty(torque);
+}
+
+#define motor_get_torque pwm_get_duty
 
 void motor_set_dir(uint8_t dir) {
   PORTA_OUT = (PORTA_OUT & ~0b11000000U) | (dir << 6);
+}
+
+uint8_t motor_get_dir() {
+  return PORTA_OUT >> 6;
 }
 
 
@@ -270,7 +290,7 @@ void step_update(void) {
       motor_set_dir(MOTOR_DIR_FWD);
     else
       motor_set_dir(MOTOR_DIR_NONE);
-    motor_set_vel(abs(pid));
+    motor_set_torque(abs(pid));
       
     DBG(print, now_ - last_check);
     DBG(print, ":   Step ");

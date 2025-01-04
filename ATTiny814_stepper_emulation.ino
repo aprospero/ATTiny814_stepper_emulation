@@ -323,7 +323,7 @@ int32_t pid_update(int32_t error, int32_t position)
  *                                *
  **********************************/
 #define STEP_PROBE_FREQ 25       // in Hz - how frequently do we update motor torque
-#define STEP_TOLERATED_ERROR 8   // in ticks - the absolute max accepted error between nominal and actual step.
+#define STEP_TOLERATED_ERROR 5   // in ticks - the absolute max accepted error between nominal and actual step.
 
 #define STEP_PIN_STEP PIN_PA3
 #define STEP_PIN_DIR  PIN_PA2

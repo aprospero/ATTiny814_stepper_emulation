@@ -144,6 +144,13 @@ void pwm_init()
 #define MOTOR_DIR_REV  2
 #define MOTOR_DIR_STOP 3
 
+const char * MOTOR_DIR_TXT[4] = {
+  "None",     // MOTOR_DIR_NONE
+  "Forward",  // MOTOR_DIR_FWD
+  "Reverse",  // MOTOR_DIR_REV
+  "Stop"      // MOTOR_DIR_STOP
+};
+
 
 void motor_init(void) {
   pinMode(MOTOR_PIN_FWD, OUTPUT);
@@ -175,6 +182,10 @@ void motor_set(uint32_t torque, uint8_t dir) {
 
 uint8_t motor_get_dir() {
   return PORTA_OUT >> 6;
+}
+
+const char * motor_get_dir_txt() {
+  return MOTOR_DIR_TXT[PORTA_OUT >> 6];
 }
 
 
@@ -426,7 +437,7 @@ void step_update(void) {
     DBG(print, motor_get_torque());
     DBG(print, ")");
     DBG(print, "  Dir: ");
-    DBG(println, motor_get_dir());
+    DBG(println, motor_get_dir_txt());
 
     last_check = now;
     update_cnt = 0;

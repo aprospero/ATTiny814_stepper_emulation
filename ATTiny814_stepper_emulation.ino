@@ -370,6 +370,7 @@ void step_init(void) {
  */
 void step_update(void) {
   static uint32_t last_check = millis();
+  static uint32_t last_check_duration = 0;
   static uint32_t update_cnt = 0;
   static uint32_t overload_led_hold = 0;
   uint32_t now = millis();
@@ -379,6 +380,7 @@ void step_update(void) {
   update_cnt++;
 
   if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
+    uint32_t check_start = micros();
     int32_t pos_err = step_cnt - enc.value;
     int32_t torque = abs(pid_update(pos_err, enc.value));
     uint8_t dir = MOTOR_DIR_NONE;
@@ -398,9 +400,14 @@ void step_update(void) {
       digitalWrite(STEP_PIN_OVERLOAD, false);
       overload_led_hold = 0;
     }
+
+    last_check_duration = micros() - check_start; 
+      
     DBG(print, id_get());
     DBG(print, " Δ(ms): ");
     DBG(print, now - last_check);
+    DBG(print, "  TestRT(µs): ");
+    DBG(print, last_check_duration);
     DBG(print, "  AvgRT(µs): ");
     tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ);
     DBG(print, tmp);

@@ -376,6 +376,19 @@ void step_init(void) {
   DBG(println);
 }
 
+void step_set_ovl_LED (int32_t torque, uint32_t now) {
+  static uint32_t overload_led_hold = 0;
+  if (    torque >= STEP_OVERLOAD_THRESHOLD 
+      || (overload_led_hold > 0 && now - overload_led_hold < STEP_OVERLOAD_HOLD_TIME)) {
+    digitalWrite(STEP_PIN_OVERLOAD, true);
+    if (torque >= STEP_OVERLOAD_THRESHOLD) 
+      overload_led_hold = now;
+  } else {
+    digitalWrite(STEP_PIN_OVERLOAD, false);
+    overload_led_hold = 0;
+  }
+}
+
 /*
  * control loop to synchronize motor/encoder state with the stepper interface input by utilizing a PID .   
  */
@@ -384,7 +397,6 @@ void step_update(void) {
 #if DEBUG
   static uint32_t update_cnt = 0;
 #endif
-  static uint32_t overload_led_hold = 0;
   uint32_t now = millis();
 
   enc_update();
@@ -406,18 +418,8 @@ void step_update(void) {
     else if (pos_err > STEP_TOLERATED_ERROR) 
       dir = MOTOR_DIR_FWD;
     motor_set(torque, dir);
+    step_set_ovl_LED(torque, now);
     
-    // overload LED handling
-    if (    torque >= STEP_OVERLOAD_THRESHOLD 
-        || (overload_led_hold > 0 && now - overload_led_hold < STEP_OVERLOAD_HOLD_TIME)) {
-      digitalWrite(STEP_PIN_OVERLOAD, true);
-      if (torque >= STEP_OVERLOAD_THRESHOLD) 
-        overload_led_hold = now;
-    } else {
-      digitalWrite(STEP_PIN_OVERLOAD, false);
-      overload_led_hold = 0;
-    }
-
 #if DEBUG
     check_rt = micros() - check_rt; 
 #endif

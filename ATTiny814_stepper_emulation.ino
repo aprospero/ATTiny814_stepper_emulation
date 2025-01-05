@@ -322,11 +322,15 @@ int32_t pid_update(int32_t error, int32_t position)
  * S T E P   T R A N S L A T O R  *
  *                                *
  **********************************/
-#define STEP_PROBE_FREQ 25       // in Hz - how frequently do we update motor torque
-#define STEP_TOLERATED_ERROR 5   // in ticks - the absolute max accepted error between nominal and actual step.
+#define STEP_PROBE_FREQ 25            // in Hz - how frequently do we update motor torque
+#define STEP_TOLERATED_ERROR 5        // in ticks - the absolute max accepted error between nominal and actual step.
+#define STEP_OVERLOAD_THRESHOLD 254   // duty/torque limit activating overload LED
+#define STEP_OVERLOAD_HOLD_TIME 2000  // overload LED hold time
 
-#define STEP_PIN_STEP PIN_PA3
-#define STEP_PIN_DIR  PIN_PA2
+#define STEP_PIN_OVERLOAD PIN_PA4
+#define STEP_PIN_STEP     PIN_PA3
+#define STEP_PIN_DIR      PIN_PA2
+
 
 #define STEP_PIN_DIR_VAL ((PORTA_IN & 0b00000100) >> 2)
 #define STEP_PIN_STEP_MASK 0b00001000
@@ -339,6 +343,7 @@ ISR(PORTA_PORT_vect) {
 }
 
 void step_init(void) {
+  pinMode(STEP_PIN_OVERLOAD, OUTPUT);
   pinMode(STEP_PIN_STEP, INPUT);
   pinMode(STEP_PIN_DIR,  INPUT);
   
@@ -353,6 +358,11 @@ void step_init(void) {
   DBG(println, STEP_PROBE_FREQ);
   DBG(print,   "# Tolerated error:   ");
   DBG(println, STEP_TOLERATED_ERROR);
+  DBG(println, "# Overload LED:");
+  DBG(print,   "#         Threshold: ");
+  DBG(println, STEP_OVERLOAD_THRESHOLD);
+  DBG(print,   "#         Hold time: ");
+  DBG(println, STEP_OVERLOAD_HOLD_TIME);
   DBG(println);
 }
 
@@ -362,6 +372,7 @@ void step_init(void) {
 void step_update(void) {
   static uint32_t last_check = millis();
   static uint32_t update_cnt = 0;
+  static uint32_t overload_led_hold = 0;
   uint32_t now = millis();
   uint32_t tmp;
 
@@ -379,6 +390,16 @@ void step_update(void) {
       motor_set_dir(MOTOR_DIR_NONE);
     motor_set_torque(abs(pid));
       
+    // overload LED handling
+    if (    abs(pid) >= STEP_OVERLOAD_THRESHOLD 
+        || (overload_led_hold > 0 && now - overload_led_hold < STEP_OVERLOAD_HOLD_TIME)) {
+      digitalWrite(STEP_PIN_OVERLOAD, true);
+      if (torque >= STEP_OVERLOAD_THRESHOLD) 
+        overload_led_hold = now;
+    } else {
+      digitalWrite(STEP_PIN_OVERLOAD, false);
+      overload_led_hold = 0;
+    }
     DBG(print, id_get());
     DBG(print, " Delta (ms): ");
     DBG(print, now - last_check);

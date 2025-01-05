@@ -3,7 +3,7 @@
  *
  */
  
-#define DEBUG 1   // SET TO 0 TO REMOVE TRACES
+#define DEBUG 0   // SET TO 0 TO REMOVE TRACES
 
 #if DEBUG
 #define DBG(FCT,...) Serial.FCT(__VA_ARGS__)

@@ -145,9 +145,9 @@ void pwm_init()
 #define MOTOR_DIR_STOP 3
 
 const char * MOTOR_DIR_TXT[4] = {
-  "None",     // MOTOR_DIR_NONE
-  "Forward",  // MOTOR_DIR_FWD
-  "Reverse",  // MOTOR_DIR_REV
+  "Off",     // MOTOR_DIR_NONE
+  "Fwd",  // MOTOR_DIR_FWD
+  "Rev",  // MOTOR_DIR_REV
   "Stop"      // MOTOR_DIR_STOP
 };
 
@@ -377,21 +377,27 @@ void step_init(void) {
 }
 
 /*
- * controls pwm duty cycle
+ * control loop to synchronize motor/encoder state with the stepper interface input by utilizing a PID .   
  */
 void step_update(void) {
   static uint32_t last_check = millis();
-  static uint32_t last_check_duration = 0;
+#if DEBUG
   static uint32_t update_cnt = 0;
+#endif
   static uint32_t overload_led_hold = 0;
   uint32_t now = millis();
-  uint32_t tmp;
 
   enc_update();
+
+#if DEBUG
   update_cnt++;
+#endif
 
   if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
-    uint32_t check_start = micros();
+#if DEBUG
+  	uint32_t tmp;
+  	uint32_t check_rt = micros();
+#endif
     int32_t pos_err = step_cnt - enc.value;
     int32_t torque = abs(pid_update(pos_err, enc.value));
     uint8_t dir = MOTOR_DIR_NONE;
@@ -412,35 +418,37 @@ void step_update(void) {
       overload_led_hold = 0;
     }
 
-    last_check_duration = micros() - check_start; 
+#if DEBUG
+    check_rt = micros() - check_rt; 
+#endif
       
     DBG(print, id_get(id));
-    DBG(print, " Δ(ms): ");
     DBG(print, now - last_check);
-    DBG(print, "  TestRT(µs): ");
-    DBG(print, last_check_duration);
-    DBG(print, "  AvgRT(µs): ");
-    tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ);
-    DBG(print, tmp);
+    DBG(print, "  ");
+    DBG(print, check_rt);
+    DBG(print, "  ");
+    DBG(print, tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ));
     DBG(print, "." );
-    tmp = 10000000 / (update_cnt * STEP_PROBE_FREQ) - (tmp * 10);
-    DBG(print, tmp);
-    DBG(print, "  Pos/Err: ");
+    DBG(print, 10000000 / (update_cnt * STEP_PROBE_FREQ) - (tmp * 10));
+    DBG(print, "  ");
     DBG(print, enc.value);
     DBG(print, "->");
     DBG(print, step_cnt);
     DBG(print, "/");
     DBG(print, pos_err);
-    DBG(print, "  Torque: ");
-    DBG(print, torque);
-    DBG(print, "(");
+    DBG(print, "  ");
     DBG(print, motor_get_torque());
+    DBG(print, "(");
+    DBG(print, torque);
     DBG(print, ")");
-    DBG(print, "  Dir: ");
+    DBG(print, "  ");
     DBG(println, motor_get_dir_txt());
 
     last_check = now;
+    
+#if DEBUG
     update_cnt = 0;
+#endif
   }
 }
 
@@ -464,6 +472,13 @@ void setup() {
   step_init();
   DBG(println, "# Init done.");
   DBG(println);
+  DBG(println, "Debug Output Format:");
+  DBG(println);
+  DBG(println, "° RT  = Roundtrip, Avg = Average, Act = Actual,");
+  DBG(println, "  Nom = Nominal,   Err = Error,   Dir = Direction");
+  DBG(println);
+  DBG(println, "[ID] Δ(ms)   TestRT(µs)   AvgRT(µs)   Pos Act->Nom/Err   Torque Act(Nom)   Dir");
+  DBG(println, "------------------------------------------------------------------------------");
 }
 
 

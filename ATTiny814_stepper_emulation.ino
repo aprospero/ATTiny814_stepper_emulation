@@ -30,9 +30,9 @@ uint8_t id;
 
 const char * id_get() {
   if (id == ID_X_AXIS)
-    return "[X - Axis]";
+    return "[X]";
   if (id == ID_Y_AXIS)
-    return "[Y - Axis]";
+    return "[Y]";
   else 
     return "[INV]";
 }
@@ -399,26 +399,26 @@ void step_update(void) {
       overload_led_hold = 0;
     }
     DBG(print, id_get());
-    DBG(print, " Delta (ms): ");
+    DBG(print, " Δ(ms): ");
     DBG(print, now - last_check);
-    DBG(print, " Avg RT (µs): ");
+    DBG(print, "  AvgRT(µs): ");
     tmp = 1000000 / (update_cnt * STEP_PROBE_FREQ);
     DBG(print, tmp);
     DBG(print, "." );
     tmp = 10000000 / (update_cnt * STEP_PROBE_FREQ) - (tmp * 10);
     DBG(print, tmp);
-    DBG(print, " Step: ");
+    DBG(print, "  Pos/Err: ");
     DBG(print, enc.value);
     DBG(print, "->");
     DBG(print, step_cnt);
-    DBG(print, " Err: ");
+    DBG(print, "/");
     DBG(print, pos_err);
-    DBG(print, " Torque: ");
+    DBG(print, "  Torque: ");
     DBG(print, torque);
-    DBG(print, " (");
+    DBG(print, "(");
     DBG(print, motor_get_torque());
     DBG(print, ")");
-    DBG(print, " Dir: ");
+    DBG(print, "  Dir: ");
     DBG(println, motor_get_dir());
 
     last_check = now;

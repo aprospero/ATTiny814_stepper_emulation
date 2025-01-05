@@ -160,19 +160,18 @@ void motor_init(void) {
   DBG(println);
 }
 
-void motor_set_torque(uint32_t torque) {
-  if (torque < MOTOR_TORQUE_MIN) 
+void motor_set(uint32_t torque, uint8_t dir) {
+  if (dir == MOTOR_DIR_NONE || dir == MOTOR_DIR_NONE)
+    torque = 0;
+  else if (torque < MOTOR_TORQUE_MIN) 
     torque = MOTOR_TORQUE_MIN;
-  if (torque > MOTOR_TORQUE_MAX)
+  else if (torque > MOTOR_TORQUE_MAX)
     torque = MOTOR_TORQUE_MAX;
   pwm_set_duty(torque);
+  PORTA_OUT = (PORTA_OUT & ~0b11000000U) | (dir << 6);
 }
 
 #define motor_get_torque pwm_get_duty
-
-void motor_set_dir(uint8_t dir) {
-  PORTA_OUT = (PORTA_OUT & ~0b11000000U) | (dir << 6);
-}
 
 uint8_t motor_get_dir() {
   return PORTA_OUT >> 6;
@@ -381,17 +380,16 @@ void step_update(void) {
 
   if (now - last_check > (1000 / STEP_PROBE_FREQ)) {
     int32_t pos_err = step_cnt - enc.value;
-    int32_t pid = pid_update(pos_err, enc.value);
-    if (pos_err < -STEP_TOLERATED_ERROR)
-      motor_set_dir(MOTOR_DIR_REV);
-    else if (pos_err > STEP_TOLERATED_ERROR)
-      motor_set_dir(MOTOR_DIR_FWD);
-    else
-      motor_set_dir(MOTOR_DIR_NONE);
-    motor_set_torque(abs(pid));
-      
+    int32_t torque = abs(pid_update(pos_err, enc.value));
+    uint8_t dir = MOTOR_DIR_NONE;
+    if (pos_err < -STEP_TOLERATED_ERROR) 
+      dir = MOTOR_DIR_REV;
+    else if (pos_err > STEP_TOLERATED_ERROR) 
+      dir = MOTOR_DIR_FWD;
+    motor_set(torque, dir);
+    
     // overload LED handling
-    if (    abs(pid) >= STEP_OVERLOAD_THRESHOLD 
+    if (    torque >= STEP_OVERLOAD_THRESHOLD 
         || (overload_led_hold > 0 && now - overload_led_hold < STEP_OVERLOAD_HOLD_TIME)) {
       digitalWrite(STEP_PIN_OVERLOAD, true);
       if (torque >= STEP_OVERLOAD_THRESHOLD) 
@@ -413,10 +411,10 @@ void step_update(void) {
     DBG(print, enc.value);
     DBG(print, "->");
     DBG(print, step_cnt);
-    DBG(print, " PID: ");
-    DBG(print, pid);
-    DBG(print, " Duty: ");
-    DBG(print, pid);
+    DBG(print, " Err: ");
+    DBG(print, pos_err);
+    DBG(print, " Torque: ");
+    DBG(print, torque);
     DBG(print, " (");
     DBG(print, motor_get_torque());
     DBG(print, ")");

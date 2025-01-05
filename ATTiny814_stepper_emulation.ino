@@ -28,22 +28,22 @@
 
 uint8_t id;
 
-const char * id_get() {
+const char * id_get(int id) {
   if (id == ID_X_AXIS)
-    return "[X]";
+    return "[X] ";
   if (id == ID_Y_AXIS)
-    return "[Y]";
+    return "[Y] ";
   else 
-    return "[INV]";
+    return "[INV] ";
 }
 
 void id_init(uint8_t force) {
   id = USERSIG.read(0);
   DBG(println, "######  Identity  ######");
   DBG(print,   "# Expected:      ");
-  DBG(println, ID_X_AXIS);
+  DBG(println, id_get(ID_DEFAULT));
   DBG(print,   "# Actual:        ");
-  DBG(println, id);
+  DBG(println, id_get(id));
   DBG(print,   "# Force rewrite: ");
   DBG(println, force);
   if (id != ID_DEFAULT && (force || id == 0x00 || id == 0xFF)) {
@@ -403,7 +403,7 @@ void step_update(void) {
 
     last_check_duration = micros() - check_start; 
       
-    DBG(print, id_get());
+    DBG(print, id_get(id));
     DBG(print, " Δ(ms): ");
     DBG(print, now - last_check);
     DBG(print, "  TestRT(µs): ");

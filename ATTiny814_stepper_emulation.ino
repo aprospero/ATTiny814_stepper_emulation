@@ -340,15 +340,23 @@ int32_t pid_update(int32_t error, int32_t position)
 #define STEP_PIN_OVERLOAD PIN_PA4
 #define STEP_PIN_STEP     PIN_PA3
 #define STEP_PIN_DIR      PIN_PA2
+#define STEP_PIN_BACKLASH PIN_PA1
 
-
-#define STEP_PIN_DIR_VAL ((PORTA_IN & 0b00000100) >> 2)
+#define STEP_PIN_DIR_VAL   ((PORTA_IN & 0b00000100) >> 2)
 #define STEP_PIN_STEP_MASK 0b00001000
+#define STEP_PIN_STEP_CTRL PORTA.PIN3CTRL
 
 volatile int32_t step_cnt;
+volatile int16_t backlash;
+volatile int8_t  last_dir;
 
 ISR(PORTA_PORT_vect) {
-  step_cnt += (STEP_PIN_DIR_VAL << 1) - 1;  // dir pin state changes sign
+  int16_t dir = (STEP_PIN_DIR_VAL << 1) - 1;  // Dir pin state determines sign.
+  if (dir != last_dir)  {                     // add backlash on dir change 
+    last_dir = dir;
+    dir *= backlash;
+  }
+  step_cnt += dir;
   PORTA.INTFLAGS = STEP_PIN_STEP_MASK;
 }
 
@@ -356,8 +364,11 @@ void step_init(void) {
   pinMode(STEP_PIN_OVERLOAD, OUTPUT);
   pinMode(STEP_PIN_STEP, INPUT);
   pinMode(STEP_PIN_DIR,  INPUT);
+  pinMode(STEP_PIN_BACKLASH, INPUT);
+  backlash = analogRead(STEP_PIN_BACKLASH);
+  last_dir = 0;
   
-  PORTA.PIN3CTRL |= PORT_ISC_RISING_gc;   // Enable interrupt on step input pin.
+  STEP_PIN_STEP_CTRL |= PORT_ISC_RISING_gc;   // Enable interrupt on step input pin.
   step_cnt = 0;
 
   enc_init(0);
@@ -368,6 +379,8 @@ void step_init(void) {
   DBG(println, STEP_PROBE_FREQ);
   DBG(print,   "# Tolerated error:   ");
   DBG(println, STEP_TOLERATED_ERROR);
+  DBG(print,   "# Backlash:          ");
+  DBG(println, backlash);
   DBG(println, "# Overload LED:");
   DBG(print,   "#         Threshold: ");
   DBG(println, STEP_OVERLOAD_THRESHOLD);
@@ -419,6 +432,7 @@ void step_update(void) {
       dir = MOTOR_DIR_FWD;
     motor_set(torque, dir);
     step_set_ovl_LED(torque, now);
+    backlash = analogRead(STEP_PIN_BACKLASH);
     
 #if DEBUG
     check_rt = micros() - check_rt; 
@@ -444,7 +458,9 @@ void step_update(void) {
     DBG(print, torque);
     DBG(print, ")");
     DBG(print, "  ");
-    DBG(println, motor_get_dir_txt());
+    DBG(print, motor_get_dir_txt());
+    DBG(print, "  ");
+    DBG(println, backlash);
 
     last_check = now;
     
@@ -479,8 +495,8 @@ void setup() {
   DBG(println, "° RT  = Roundtrip, Avg = Average, Act = Actual,");
   DBG(println, "  Nom = Nominal,   Err = Error,   Dir = Direction");
   DBG(println);
-  DBG(println, "[ID] Δ(ms)   TestRT(µs)   AvgRT(µs)   Pos Act->Nom/Err   Torque Act(Nom)   Dir");
-  DBG(println, "------------------------------------------------------------------------------");
+  DBG(println, "[ID] Δ(ms)   TestRT(µs)   AvgRT(µs)   Pos Act->Nom/Err   Torque Act(Nom)   Dir   Backlash");
+  DBG(println, "-----------------------------------------------------------------------------------------");
 }
 
 

@@ -335,7 +335,8 @@ int32_t pid_update(int32_t error, int32_t position)
 #define STEP_PROBE_FREQ 50            // in Hz - how frequently do we update motor torque
 #define STEP_TOLERATED_ERROR 5        // in ticks - the absolute max accepted error between nominal and actual step.
 #define STEP_OVERLOAD_THRESHOLD 254   // duty/torque limit activating overload LED
-#define STEP_OVERLOAD_HOLD_TIME 2000  // overload LED hold time
+#define STEP_OVERLOAD_HOLD_TIME 2000  // overload LED hold time.
+#define STEP_BACKLASH_MULTIPLICATOR 2 // base range for backlash is 0 - 1024 steps. Adjust at will.
 
 #define STEP_PIN_OVERLOAD PIN_PA4
 #define STEP_PIN_STEP     PIN_PA3
@@ -365,7 +366,7 @@ void step_init(void) {
   pinMode(STEP_PIN_STEP, INPUT);
   pinMode(STEP_PIN_DIR,  INPUT);
   pinMode(STEP_PIN_BACKLASH, INPUT);
-  backlash = analogRead(STEP_PIN_BACKLASH);
+  backlash = analogRead(STEP_PIN_BACKLASH) * STEP_BACKLASH_MULTIPLICATOR;
   last_dir = 0;
   
   STEP_PIN_STEP_CTRL |= PORT_ISC_RISING_gc;   // Enable interrupt on step input pin.
@@ -432,7 +433,7 @@ void step_update(void) {
       dir = MOTOR_DIR_FWD;
     motor_set(torque, dir);
     step_set_ovl_LED(torque, now);
-    backlash = analogRead(STEP_PIN_BACKLASH);
+    backlash = analogRead(STEP_PIN_BACKLASH) * STEP_BACKLASH_MULTIPLICATOR;
     
 #if DEBUG
     check_rt = micros() - check_rt; 
